@@ -99,7 +99,8 @@ function neo4j_create_schema_item(string $type, string $name): void
             . 'DELETE node'
         ),
         'relationships' => $client->run(
-            'CREATE (startNode)-[relationship:`' . $escapedName . '`]->(endNode) '
+            'CREATE (startNode), (endNode) '
+            . 'CREATE (startNode)-[relationship:`' . $escapedName . '`]->(endNode) '
             . 'DELETE relationship, startNode, endNode'
         ),
         'properties' => $client->run(
