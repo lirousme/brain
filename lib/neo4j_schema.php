@@ -90,24 +90,20 @@ function neo4j_create_schema_item(string $type, string $name): void
     }
 
     $name = neo4j_clean_schema_name($name);
-    $escapedName = neo4j_escape_schema_identifier($name);
     $client = neo4j_client();
 
     match ($type) {
         'nodes' => $client->run(
-            'CREATE (node:`' . $escapedName . '`) '
-            . 'DELETE node'
+            'CALL db.createLabel($name)',
+            ['name' => $name]
         ),
         'relationships' => $client->run(
-            'CREATE (startNode), (endNode) '
-            . 'CREATE (startNode)-[relationship:`' . $escapedName . '`]->(endNode) '
-            . 'DELETE relationship, startNode, endNode'
+            'CALL db.createRelationshipType($name)',
+            ['name' => $name]
         ),
         'properties' => $client->run(
-            'CREATE (node) '
-            . 'SET node.`' . $escapedName . '` = 1 '
-            . 'REMOVE node.`' . $escapedName . '` '
-            . 'DELETE node'
+            'CALL db.createProperty($name)',
+            ['name' => $name]
         ),
         default => throw new InvalidArgumentException('Tipo de estrutura inválido.'),
     };
@@ -229,21 +225,21 @@ function neo4j_schema_overview(): array
         return [
             'nodes' => neo4j_fetch_column(
                 $client,
-                'CALL db.labels() YIELD label '
-                . 'RETURN label ORDER BY label',
-                'label'
+                'SHOW NODE LABELS YIELD name '
+                . 'RETURN name ORDER BY name',
+                'name'
             ),
             'relationships' => neo4j_fetch_column(
                 $client,
-                'CALL db.relationshipTypes() YIELD relationshipType '
-                . 'RETURN relationshipType ORDER BY relationshipType',
-                'relationshipType'
+                'SHOW RELATIONSHIP TYPES YIELD name '
+                . 'RETURN name ORDER BY name',
+                'name'
             ),
             'properties' => neo4j_fetch_column(
                 $client,
-                'CALL db.propertyKeys() YIELD propertyKey '
-                . 'RETURN propertyKey ORDER BY propertyKey',
-                'propertyKey'
+                'SHOW PROPERTY KEYS YIELD name '
+                . 'RETURN name ORDER BY name',
+                'name'
             ),
             'error' => null,
         ];
