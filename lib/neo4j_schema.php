@@ -219,19 +219,26 @@ function neo4j_delete_schema_item(string $type, string $name): void
             'DELETE relationship ' .
             'RETURN count(relationship) AS total'
         ),
-        'properties' => neo4j_run_write_and_get_total($client,
-            'CALL { ' .
-            'MATCH (entity) WHERE entity.`' . $escapedName . '` IS NOT NULL ' .
-            'REMOVE entity.`' . $escapedName . '` ' .
-            'RETURN count(entity) AS nodeTotal ' .
-            '} ' .
-            'CALL { ' .
-            'MATCH ()-[relationship]->() WHERE relationship.`' . $escapedName . '` IS NOT NULL ' .
-            'REMOVE relationship.`' . $escapedName . '` ' .
-            'RETURN count(relationship) AS relationshipTotal ' .
-            '} ' .
-            'RETURN nodeTotal, relationshipTotal'
-        ),
+        'properties' => (function () use ($client, $escapedName): int {
+            $removed = neo4j_run_write_and_get_total($client,
+                'CALL { ' .
+                'MATCH (entity) WHERE entity.`' . $escapedName . '` IS NOT NULL ' .
+                'REMOVE entity.`' . $escapedName . '` ' .
+                'RETURN count(entity) AS nodeTotal ' .
+                '} ' .
+                'CALL { ' .
+                'MATCH ()-[relationship]->() WHERE relationship.`' . $escapedName . '` IS NOT NULL ' .
+                'REMOVE relationship.`' . $escapedName . '` ' .
+                'RETURN count(relationship) AS relationshipTotal ' .
+                '} ' .
+                'RETURN nodeTotal, relationshipTotal'
+            );
+
+            // Também remove o token da property key para não continuar visível na listagem.
+            $client->run('DROP PROPERTY KEY `' . $escapedName . '` IF EXISTS');
+
+            return $removed > 0 ? $removed : 1;
+        })(),
         default => throw new InvalidArgumentException('Tipo de estrutura inválido.'),
     };
 
