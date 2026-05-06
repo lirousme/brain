@@ -225,20 +225,17 @@ function neo4j_schema_overview(): array
         return [
             'nodes' => neo4j_fetch_column(
                 $client,
-                'SHOW NODE LABELS YIELD name '
-                . 'RETURN name ORDER BY name',
+                'CALL db.labels() YIELD label RETURN label AS name ORDER BY name',
                 'name'
             ),
             'relationships' => neo4j_fetch_column(
                 $client,
-                'SHOW RELATIONSHIP TYPES YIELD name '
-                . 'RETURN name ORDER BY name',
+                'CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType AS name ORDER BY name',
                 'name'
             ),
             'properties' => neo4j_fetch_column(
                 $client,
-                'SHOW PROPERTY KEYS YIELD name '
-                . 'RETURN name ORDER BY name',
+                'CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey AS name ORDER BY name',
                 'name'
             ),
             'error' => null,
