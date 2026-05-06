@@ -81,7 +81,7 @@ function neo4j_fetch_column(object $client, string $cypher, string $column): arr
 }
 
 /**
- * Creates a node label, relationship type or property key immediately in Neo4j.
+ * Creates a schema token for a node label, relationship type or property key in Neo4j.
  */
 function neo4j_create_schema_item(string $type, string $name): void
 {
@@ -90,31 +90,12 @@ function neo4j_create_schema_item(string $type, string $name): void
     }
 
     $name = neo4j_clean_schema_name($name);
-    $escapedName = neo4j_escape_schema_identifier($name);
     $client = neo4j_client();
 
     match ($type) {
-        'nodes' => $client->run('MERGE (n:`' . $escapedName . '`)'),
-        'relationships' => $client->run(
-            'OPTIONAL MATCH (existing) WITH existing LIMIT 1 ' .
-            'CALL { ' .
-            'WITH existing WITH existing WHERE existing IS NOT NULL RETURN existing AS node ' .
-            'UNION ' .
-            'WITH existing WITH existing WHERE existing IS NULL CREATE (created) RETURN created AS node ' .
-            '} ' .
-            'MERGE (node)-[relationship:`' . $escapedName . '`]->(node) ' .
-            'RETURN count(relationship) AS total'
-        ),
-        'properties' => $client->run(
-            'OPTIONAL MATCH (existing) WITH existing LIMIT 1 ' .
-            'CALL { ' .
-            'WITH existing WITH existing WHERE existing IS NOT NULL RETURN existing AS node ' .
-            'UNION ' .
-            'WITH existing WITH existing WHERE existing IS NULL CREATE (created) RETURN created AS node ' .
-            '} ' .
-            'SET node.`' . $escapedName . '` = coalesce(node.`' . $escapedName . '`, true) ' .
-            'RETURN node.`' . $escapedName . '` AS propertyValue'
-        ),
+        'nodes' => $client->run('CALL db.createLabel($name)', ['name' => $name]),
+        'relationships' => $client->run('CALL db.createRelationshipType($name)', ['name' => $name]),
+        'properties' => $client->run('CALL db.createProperty($name)', ['name' => $name]),
         default => throw new InvalidArgumentException('Tipo de estrutura inválido.'),
     };
 }
