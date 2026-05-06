@@ -20,11 +20,29 @@ $viewFile = $views[$currentView] ?? $views['configurar_estrutura_do_banco'];
 $flash = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['schema_action'] ?? 'create';
+
     try {
-        neo4j_create_schema_item($_POST['schema_type'] ?? '', $_POST['name'] ?? '');
+        match ($action) {
+            'create' => neo4j_create_schema_item($_POST['schema_type'] ?? '', $_POST['name'] ?? ''),
+            'rename' => neo4j_rename_schema_item(
+                $_POST['schema_type'] ?? '',
+                $_POST['current_name'] ?? '',
+                $_POST['new_name'] ?? ''
+            ),
+            'delete' => neo4j_delete_schema_item($_POST['schema_type'] ?? '', $_POST['current_name'] ?? ''),
+            default => throw new InvalidArgumentException('Ação inválida.'),
+        };
+
+        $flashMessages = [
+            'create' => 'Estrutura criada no banco com sucesso.',
+            'rename' => 'Estrutura renomeada no banco com sucesso.',
+            'delete' => 'Estrutura excluída do banco com sucesso.',
+        ];
+
         $flash = [
             'type' => 'success',
-            'message' => 'Estrutura criada no banco com sucesso.',
+            'message' => $flashMessages[$action] ?? 'Operação realizada no banco com sucesso.',
         ];
     } catch (Throwable $exception) {
         $flash = [
