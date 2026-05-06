@@ -18,6 +18,10 @@ $views = [
 $currentView = $_GET['view'] ?? 'configurar_estrutura_do_banco';
 $viewFile = $views[$currentView] ?? $views['configurar_estrutura_do_banco'];
 $flash = null;
+$acceptHeader = $_SERVER['HTTP_ACCEPT'] ?? '';
+$isJsonRequest = str_contains($acceptHeader, 'application/json')
+    || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch'
+    || isset($_GET['ajax']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['schema_action'] ?? 'create';
@@ -53,6 +57,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $schema = neo4j_schema_overview();
+
+if ($isJsonRequest) {
+    http_response_code($flash && $flash['type'] === 'error' ? 422 : 200);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(
+        [
+            'ok' => !$flash || $flash['type'] === 'success',
+            'flash' => $flash,
+            'schema' => $schema,
+        ],
+        JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+    );
+    exit;
+}
 ?>
 <!doctype html>
 <html lang="pt-BR" class="dark">
@@ -73,7 +91,7 @@ $schema = neo4j_schema_overview();
                     <p class="text-sm font-medium uppercase tracking-[0.3em] text-cyan-300">Neo4j + Bolt</p>
                     <h1 class="mt-2 text-3xl font-bold tracking-tight text-white">Configurar estrutura do banco</h1>
                     <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                        Visualize os labels, relacionamentos e chaves de propriedades existentes. Ao usar os campos abaixo, apenas o token de schema é criado no banco atual.
+                        Visualize os labels, relacionamentos e chaves de propriedades existentes. Ao usar os campos abaixo, a interface aguarda a confirmação do banco e atualiza a lista sem recarregar a página inteira.
                     </p>
                 </div>
                 <div class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">

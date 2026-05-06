@@ -5,6 +5,10 @@ declare(strict_types=1);
 use Laudis\Neo4j\ClientBuilder;
 
 const DEFAULT_NEO4J_BOLT_URL = 'bolt://neo4j:75351595@localhost:7687';
+const NEO4J_SCHEMA_REGISTRY_LABEL = '__BrainSchemaRegistry';
+const NEO4J_SCHEMA_REGISTRY_RELATIONSHIP = '__BRAIN_SCHEMA_REGISTRY_RELATIONSHIP';
+const NEO4J_SCHEMA_REGISTRY_ID_PROPERTY = '__brain_schema_registry_id';
+const NEO4J_SCHEMA_REGISTRY_VALUE_PROPERTY = '__brain_schema_registry_value';
 
 /**
  * Reads the configured Neo4j Bolt DSN.
@@ -90,12 +94,31 @@ function neo4j_create_schema_item(string $type, string $name): void
     }
 
     $name = neo4j_clean_schema_name($name);
+    $escapedName = neo4j_escape_schema_identifier($name);
+    $registryLabel = neo4j_escape_schema_identifier(NEO4J_SCHEMA_REGISTRY_LABEL);
+    $registryRelationship = neo4j_escape_schema_identifier(NEO4J_SCHEMA_REGISTRY_RELATIONSHIP);
+    $registryIdProperty = neo4j_escape_schema_identifier(NEO4J_SCHEMA_REGISTRY_ID_PROPERTY);
+    $registryValueProperty = neo4j_escape_schema_identifier(NEO4J_SCHEMA_REGISTRY_VALUE_PROPERTY);
     $client = neo4j_client();
 
     match ($type) {
-        'nodes' => $client->run('CALL db.createLabel($name)', ['name' => $name]),
-        'relationships' => $client->run('CALL db.createRelationshipType($name)', ['name' => $name]),
-        'properties' => $client->run('CALL db.createProperty($name)', ['name' => $name]),
+        'nodes' => $client->run(
+            'MERGE (registry:`' . $registryLabel . '` {`' . $registryIdProperty . '`: $registryId}) '
+            . 'SET registry:`' . $escapedName . '`, registry.`' . $registryValueProperty . '` = $name',
+            ['registryId' => 'label:' . $name, 'name' => $name]
+        ),
+        'relationships' => $client->run(
+            'MERGE (start:`' . $registryLabel . '` {`' . $registryIdProperty . '`: $startId}) '
+            . 'MERGE (end:`' . $registryLabel . '` {`' . $registryIdProperty . '`: $endId}) '
+            . 'MERGE (start)-[relationship:`' . $escapedName . '`]->(end) '
+            . 'SET relationship.`' . $registryValueProperty . '` = $name',
+            ['startId' => 'relationship:' . $name . ':start', 'endId' => 'relationship:' . $name . ':end', 'name' => $name]
+        ),
+        'properties' => $client->run(
+            'MERGE (registry:`' . $registryLabel . '` {`' . $registryIdProperty . '`: $registryId}) '
+            . 'SET registry.`' . $escapedName . '` = $name',
+            ['registryId' => 'property:' . $name, 'name' => $name]
+        ),
         default => throw new InvalidArgumentException('Tipo de estrutura inválido.'),
     };
 }
@@ -214,21 +237,21 @@ function neo4j_schema_overview(): array
         $client = neo4j_client();
 
         return [
-            'nodes' => neo4j_fetch_column(
+            'nodes' => neo4j_without_internal_schema_names(neo4j_fetch_column(
                 $client,
                 'CALL db.labels() YIELD label RETURN label ORDER BY label',
                 'label'
-            ),
-            'relationships' => neo4j_fetch_column(
+            )),
+            'relationships' => neo4j_without_internal_schema_names(neo4j_fetch_column(
                 $client,
                 'CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType ORDER BY relationshipType',
                 'relationshipType'
-            ),
-            'properties' => neo4j_fetch_column(
+            )),
+            'properties' => neo4j_without_internal_schema_names(neo4j_fetch_column(
                 $client,
                 'CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey ORDER BY propertyKey',
                 'propertyKey'
-            ),
+            )),
             'error' => null,
         ];
     } catch (Throwable $exception) {
@@ -239,6 +262,25 @@ function neo4j_schema_overview(): array
             'error' => 'Não foi possível consultar o Neo4j via Bolt: ' . $exception->getMessage(),
         ];
     }
+}
+
+
+/**
+ * Removes registry-only labels, relationships and properties from user-facing schema lists.
+ *
+ * @param list<string> $names
+ * @return list<string>
+ */
+function neo4j_without_internal_schema_names(array $names): array
+{
+    $internalNames = [
+        NEO4J_SCHEMA_REGISTRY_LABEL,
+        NEO4J_SCHEMA_REGISTRY_RELATIONSHIP,
+        NEO4J_SCHEMA_REGISTRY_ID_PROPERTY,
+        NEO4J_SCHEMA_REGISTRY_VALUE_PROPERTY,
+    ];
+
+    return array_values(array_filter($names, static fn (string $name): bool => !in_array($name, $internalNames, true)));
 }
 
 /**
