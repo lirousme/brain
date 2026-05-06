@@ -81,6 +81,27 @@ function neo4j_fetch_column(object $client, string $cypher, string $column, arra
 }
 
 /**
+ * Executes a write query and returns the first numeric column from the first record.
+ */
+function neo4j_run_write_and_get_total(object $client, string $cypher, array $parameters = []): int
+{
+    $result = $client->run($cypher, $parameters);
+    $records = method_exists($result, 'getResult') ? $result->getResult() : $result;
+
+    foreach ($records as $record) {
+        foreach ($record->keys() as $key) {
+            $value = $record->get($key);
+
+            if (is_numeric($value)) {
+                return (int) $value;
+            }
+        }
+    }
+
+    return 0;
+}
+
+/**
  * Creates a schema token for a node label, relationship type or property key in Neo4j.
  */
 function neo4j_create_schema_item(string $type, string $name): void
@@ -94,22 +115,26 @@ function neo4j_create_schema_item(string $type, string $name): void
 
     $escapedName = neo4j_escape_schema_identifier($name);
 
-    match ($type) {
-        'nodes' => $client->run(
+    $affected = match ($type) {
+        'nodes' => neo4j_run_write_and_get_total($client,
             'CREATE (node:`' . $escapedName . '`) ' .
             'RETURN count(node) AS total'
         ),
-        'relationships' => $client->run(
+        'relationships' => neo4j_run_write_and_get_total($client,
             'CREATE (startNode)-[relationship:`' . $escapedName . '`]->(endNode) ' .
             'RETURN count(relationship) AS total'
         ),
-        'properties' => $client->run(
+        'properties' => neo4j_run_write_and_get_total($client,
             'CREATE (entity) ' .
             'SET entity.`' . $escapedName . '` = "" ' .
             'RETURN count(entity) AS total'
         ),
         default => throw new InvalidArgumentException('Tipo de estrutura inválido.'),
     };
+
+    if ($affected === 0) {
+        throw new RuntimeException('Neo4j não confirmou a criação da estrutura solicitada.');
+    }
 }
 
 /**
@@ -132,21 +157,21 @@ function neo4j_rename_schema_item(string $type, string $currentName, string $new
     $escapedNewName = neo4j_escape_schema_identifier($newName);
     $client = neo4j_client();
 
-    match ($type) {
-        'nodes' => $client->run(
+    $affected = match ($type) {
+        'nodes' => neo4j_run_write_and_get_total($client,
             'MATCH (node:`' . $escapedCurrentName . '`) ' .
             'REMOVE node:`' . $escapedCurrentName . '` ' .
             'SET node:`' . $escapedNewName . '` ' .
             'RETURN count(node) AS total'
         ),
-        'relationships' => $client->run(
+        'relationships' => neo4j_run_write_and_get_total($client,
             'MATCH (start)-[relationship:`' . $escapedCurrentName . '`]->(end) ' .
             'CREATE (start)-[renamedRelationship:`' . $escapedNewName . '`]->(end) ' .
             'SET renamedRelationship = properties(relationship) ' .
             'DELETE relationship ' .
             'RETURN count(renamedRelationship) AS total'
         ),
-        'properties' => $client->run(
+        'properties' => neo4j_run_write_and_get_total($client,
             'CALL { ' .
             'MATCH (entity) WHERE entity.`' . $escapedCurrentName . '` IS NOT NULL ' .
             'SET entity.`' . $escapedNewName . '` = entity.`' . $escapedCurrentName . '` ' .
@@ -163,6 +188,10 @@ function neo4j_rename_schema_item(string $type, string $currentName, string $new
         ),
         default => throw new InvalidArgumentException('Tipo de estrutura inválido.'),
     };
+
+    if ($affected === 0) {
+        throw new RuntimeException('Nenhum item foi alterado. Verifique se o nome atual ainda existe no banco.');
+    }
 }
 
 /**
@@ -178,18 +207,18 @@ function neo4j_delete_schema_item(string $type, string $name): void
     $escapedName = neo4j_escape_schema_identifier($name);
     $client = neo4j_client();
 
-    match ($type) {
-        'nodes' => $client->run(
+    $affected = match ($type) {
+        'nodes' => neo4j_run_write_and_get_total($client,
             'MATCH (node:`' . $escapedName . '`) ' .
-            'DETACH DELETE node ' .
+            'REMOVE node:`' . $escapedName . '` ' .
             'RETURN count(node) AS total'
         ),
-        'relationships' => $client->run(
+        'relationships' => neo4j_run_write_and_get_total($client,
             'MATCH ()-[relationship:`' . $escapedName . '`]->() ' .
             'DELETE relationship ' .
             'RETURN count(relationship) AS total'
         ),
-        'properties' => $client->run(
+        'properties' => neo4j_run_write_and_get_total($client,
             'CALL { ' .
             'MATCH (entity) WHERE entity.`' . $escapedName . '` IS NOT NULL ' .
             'REMOVE entity.`' . $escapedName . '` ' .
@@ -204,6 +233,10 @@ function neo4j_delete_schema_item(string $type, string $name): void
         ),
         default => throw new InvalidArgumentException('Tipo de estrutura inválido.'),
     };
+
+    if ($affected === 0) {
+        throw new RuntimeException('Nenhum item foi excluído. Verifique se ele ainda existe no banco.');
+    }
 }
 
 /**
