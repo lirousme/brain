@@ -188,7 +188,7 @@ function neo4j_delete_schema_item(string $type, string $name): void
     match ($type) {
         'nodes' => $client->run(
             'MATCH (node:`' . $escapedName . '`) ' .
-            'REMOVE node:`' . $escapedName . '` ' .
+            'DETACH DELETE node ' .
             'RETURN count(node) AS total'
         ),
         'relationships' => $client->run(
