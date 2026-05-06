@@ -285,7 +285,16 @@ function neo4j_schema_overview(): array
             ),
             'properties' => neo4j_fetch_column(
                 $client,
-                'CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey AS name ORDER BY name',
+                'CALL { '
+                . 'MATCH (entity) '
+                . 'UNWIND keys(entity) AS propertyKey '
+                . 'RETURN propertyKey '
+                . 'UNION '
+                . 'MATCH ()-[relationship]->() '
+                . 'UNWIND keys(relationship) AS propertyKey '
+                . 'RETURN propertyKey '
+                . '} '
+                . 'RETURN DISTINCT propertyKey AS name ORDER BY name',
                 'name'
             ),
             'error' => null,
