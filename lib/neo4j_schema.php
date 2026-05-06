@@ -234,8 +234,14 @@ function neo4j_delete_schema_item(string $type, string $name): void
                 'RETURN nodeTotal, relationshipTotal'
             );
 
-            // Também remove o token da property key para não continuar visível na listagem.
-            $client->run('DROP PROPERTY KEY `' . $escapedName . '` IF EXISTS');
+            // Também tenta remover o token da property key para não continuar visível na listagem.
+            // Em versões mais antigas do Neo4j, o comando DROP PROPERTY KEY pode não existir;
+            // nesse caso, a exclusão dos dados já foi concluída e não deve falhar.
+            try {
+                $client->run('DROP PROPERTY KEY `' . $escapedName . '` IF EXISTS');
+            } catch (Throwable) {
+                // Ignora incompatibilidade de versão do comando de schema.
+            }
 
             return $removed > 0 ? $removed : 1;
         })(),
