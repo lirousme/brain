@@ -64,9 +64,9 @@ function neo4j_clean_schema_name(?string $name): string
  *
  * @return list<string>
  */
-function neo4j_fetch_column(object $client, string $cypher, string $column): array
+function neo4j_fetch_column(object $client, string $cypher, string $column, array $parameters = []): array
 {
-    $result = $client->run($cypher);
+    $result = $client->run($cypher, $parameters);
     $records = method_exists($result, 'getResult') ? $result->getResult() : $result;
     $values = [];
 
@@ -237,21 +237,43 @@ function neo4j_schema_overview(): array
         $client = neo4j_client();
 
         return [
-            'nodes' => neo4j_without_internal_schema_names(neo4j_fetch_column(
+            'nodes' => neo4j_fetch_column(
                 $client,
-                'CALL db.labels() YIELD label RETURN label ORDER BY label',
-                'label'
-            )),
-            'relationships' => neo4j_without_internal_schema_names(neo4j_fetch_column(
+                'MATCH (node) '
+                . 'WITH labels(node) AS nodeLabels '
+                . 'UNWIND nodeLabels AS label '
+                . 'WITH DISTINCT label '
+                . 'WHERE NOT label IN $internalNames '
+                . 'RETURN label ORDER BY label',
+                'label',
+                ['internalNames' => neo4j_internal_schema_names()]
+            ),
+            'relationships' => neo4j_fetch_column(
                 $client,
-                'CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType ORDER BY relationshipType',
-                'relationshipType'
-            )),
-            'properties' => neo4j_without_internal_schema_names(neo4j_fetch_column(
+                'MATCH ()-[relationship]->() '
+                . 'WITH DISTINCT type(relationship) AS relationshipType '
+                . 'WHERE NOT relationshipType IN $internalNames '
+                . 'RETURN relationshipType ORDER BY relationshipType',
+                'relationshipType',
+                ['internalNames' => neo4j_internal_schema_names()]
+            ),
+            'properties' => neo4j_fetch_column(
                 $client,
-                'CALL db.propertyKeys() YIELD propertyKey RETURN propertyKey ORDER BY propertyKey',
-                'propertyKey'
-            )),
+                'CALL { '
+                . 'MATCH (entity) '
+                . 'UNWIND keys(entity) AS propertyKey '
+                . 'RETURN propertyKey '
+                . 'UNION '
+                . 'MATCH ()-[relationship]->() '
+                . 'UNWIND keys(relationship) AS propertyKey '
+                . 'RETURN propertyKey '
+                . '} '
+                . 'WITH DISTINCT propertyKey '
+                . 'WHERE NOT propertyKey IN $internalNames '
+                . 'RETURN propertyKey ORDER BY propertyKey',
+                'propertyKey',
+                ['internalNames' => neo4j_internal_schema_names()]
+            ),
             'error' => null,
         ];
     } catch (Throwable $exception) {
@@ -273,14 +295,24 @@ function neo4j_schema_overview(): array
  */
 function neo4j_without_internal_schema_names(array $names): array
 {
-    $internalNames = [
+    $internalNames = neo4j_internal_schema_names();
+
+    return array_values(array_filter($names, static fn (string $name): bool => !in_array($name, $internalNames, true)));
+}
+
+/**
+ * Returns the hidden names used only to keep newly-created schema items visible.
+ *
+ * @return list<string>
+ */
+function neo4j_internal_schema_names(): array
+{
+    return [
         NEO4J_SCHEMA_REGISTRY_LABEL,
         NEO4J_SCHEMA_REGISTRY_RELATIONSHIP,
         NEO4J_SCHEMA_REGISTRY_ID_PROPERTY,
         NEO4J_SCHEMA_REGISTRY_VALUE_PROPERTY,
     ];
-
-    return array_values(array_filter($names, static fn (string $name): bool => !in_array($name, $internalNames, true)));
 }
 
 /**

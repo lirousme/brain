@@ -149,10 +149,12 @@ $initialPayload = json_encode(
 
     const submitSchemaForm = async (form) => {
         const formData = new FormData(form);
+        const requestUrl = new URL(window.location.href);
+        requestUrl.searchParams.set('ajax', '1');
         setFormBusy(form, true);
 
         try {
-            const response = await fetch(`${window.location.pathname}?ajax=1`, {
+            const response = await fetch(requestUrl, {
                 method: 'POST',
                 headers: { Accept: 'application/json', 'X-Requested-With': 'fetch' },
                 body: formData,
