@@ -119,16 +119,22 @@ function neo4j_create_schema_item(string $type, string $name): void
     $affected = match ($type) {
         'nodes' => neo4j_run_write_and_get_total($client,
             'CREATE (node:`' . $escapedName . '`) ' .
-            'RETURN count(node) AS total'
+            'WITH node ' .
+            'DETACH DELETE node ' .
+            'RETURN 1 AS total'
         ),
         'relationships' => neo4j_run_write_and_get_total($client,
             'CREATE (startNode)-[relationship:`' . $escapedName . '`]->(endNode) ' .
-            'RETURN count(relationship) AS total'
+            'WITH startNode, relationship, endNode ' .
+            'DELETE relationship, startNode, endNode ' .
+            'RETURN 1 AS total'
         ),
         'properties' => neo4j_run_write_and_get_total($client,
             'CREATE (entity) ' .
             'SET entity.`' . $escapedName . '` = "" ' .
-            'RETURN count(entity) AS total'
+            'WITH entity ' .
+            'DETACH DELETE entity ' .
+            'RETURN 1 AS total'
         ),
         default => throw new InvalidArgumentException('Tipo de estrutura inválido.'),
     };
