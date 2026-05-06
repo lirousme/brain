@@ -26,6 +26,36 @@ function neo4j_client(): object
 }
 
 /**
+ * Escapes a Neo4j schema identifier for use inside backticks.
+ */
+function neo4j_escape_schema_identifier(string $identifier): string
+{
+    return str_replace('`', '``', $identifier);
+}
+
+/**
+ * Validates an incoming label, relationship type or property key name.
+ */
+function neo4j_clean_schema_name(?string $name): string
+{
+    $name = trim((string) $name);
+
+    if ($name === '') {
+        throw new InvalidArgumentException('Informe um nome antes de criar o item no banco.');
+    }
+
+    if (str_contains($name, "\0")) {
+        throw new InvalidArgumentException('O nome não pode conter caractere nulo.');
+    }
+
+    if (strlen($name) > 128) {
+        throw new InvalidArgumentException('Use um nome com até 128 caracteres.');
+    }
+
+    return $name;
+}
+
+/**
  * Extracts scalar values from a Neo4j query result.
  *
  * @return list<string>
@@ -48,6 +78,45 @@ function neo4j_fetch_column(object $client, string $cypher, string $column): arr
     natcasesort($values);
 
     return array_values($values);
+}
+
+/**
+ * Creates a node label, relationship type or property key immediately in Neo4j.
+ */
+function neo4j_create_schema_item(string $type, string $name): void
+{
+    if (!class_exists(ClientBuilder::class)) {
+        throw new RuntimeException('Dependências ausentes. Execute `composer install` para instalar laudis/neo4j-php-client.');
+    }
+
+    $name = neo4j_clean_schema_name($name);
+    $escapedName = neo4j_escape_schema_identifier($name);
+    $client = neo4j_client();
+
+    match ($type) {
+        'nodes' => $client->run('MERGE (n:`' . $escapedName . '`)'),
+        'relationships' => $client->run(
+            'OPTIONAL MATCH (existing) WITH existing LIMIT 1 ' .
+            'CALL { ' .
+            'WITH existing WITH existing WHERE existing IS NOT NULL RETURN existing AS node ' .
+            'UNION ' .
+            'WITH existing WITH existing WHERE existing IS NULL CREATE (created) RETURN created AS node ' .
+            '} ' .
+            'MERGE (node)-[relationship:`' . $escapedName . '`]->(node) ' .
+            'RETURN count(relationship) AS total'
+        ),
+        'properties' => $client->run(
+            'OPTIONAL MATCH (existing) WITH existing LIMIT 1 ' .
+            'CALL { ' .
+            'WITH existing WITH existing WHERE existing IS NOT NULL RETURN existing AS node ' .
+            'UNION ' .
+            'WITH existing WITH existing WHERE existing IS NULL CREATE (created) RETURN created AS node ' .
+            '} ' .
+            'SET node.`' . $escapedName . '` = coalesce(node.`' . $escapedName . '`, true) ' .
+            'RETURN node.`' . $escapedName . '` AS propertyValue'
+        ),
+        default => throw new InvalidArgumentException('Tipo de estrutura inválido.'),
+    };
 }
 
 /**
