@@ -7,7 +7,7 @@ declare(strict_types=1);
 $columns = [
     [
         'key' => 'nodes',
-        'title' => 'Nodes',
+        'title' => 'Labels',
         'placeholder' => 'Ex.: Pessoa, Projeto, Empresa',
         'button' => '+',
         'items' => $schema['nodes'],
@@ -92,7 +92,7 @@ $columns = [
                             <?php
                                 $modalId = 'schema-modal-' . md5($column['key'] . ':' . $item);
                                 $deleteMessage = json_encode(
-                                    'Excluir ' . $item . ' do banco? Esta ação não pode ser desfeita.',
+                                    'Excluir ' . $item . ' do banco? Se for um label, todos os nodes com este label também serão excluídos. Esta ação não pode ser desfeita.',
                                     JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
                                 );
                             ?>
@@ -158,7 +158,7 @@ $columns = [
                                                 Excluir este item
                                             </button>
                                             <p class="mt-2 text-xs leading-5 text-slate-500">
-                                                Nodes terão o label removido; relationships serão apagados; property keys serão removidas de nodes e relationships.
+                                                Labels apagarão todos os seus nodes; relationships serão apagados; property keys serão removidas de nodes e relationships.
                                             </p>
                                         </form>
                                     </div>
