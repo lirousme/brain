@@ -81,24 +81,25 @@ function neo4j_fetch_column(object $client, string $cypher, string $column, arra
 }
 
 /**
- * Executes a write query and returns the first numeric column from the first record.
+ * Executes a write query and returns the sum of all numeric columns from all returned records.
  */
 function neo4j_run_write_and_get_total(object $client, string $cypher, array $parameters = []): int
 {
     $result = $client->run($cypher, $parameters);
     $records = method_exists($result, 'getResult') ? $result->getResult() : $result;
+    $total = 0;
 
     foreach ($records as $record) {
         foreach ($record->keys() as $key) {
             $value = $record->get($key);
 
             if (is_numeric($value)) {
-                return (int) $value;
+                $total += (int) $value;
             }
         }
     }
 
-    return 0;
+    return $total;
 }
 
 /**
