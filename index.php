@@ -34,7 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_POST['current_name'] ?? '',
                 $_POST['new_name'] ?? ''
             ),
-            'delete' => neo4j_delete_schema_item($_POST['schema_type'] ?? '', $_POST['current_name'] ?? ''),
+            'delete' => neo4j_delete_schema_item(
+                $_POST['schema_type'] ?? '',
+                $_POST['current_name'] ?? ($_POST['name'] ?? '')
+            ),
             default => throw new InvalidArgumentException('Ação inválida.'),
         };
 

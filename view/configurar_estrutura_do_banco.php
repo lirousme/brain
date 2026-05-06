@@ -91,6 +91,7 @@ $initialPayload = json_encode(
             <input type="hidden" name="schema_action" value="delete">
             <input type="hidden" name="schema_type" id="schema-delete-type">
             <input type="hidden" name="current_name" id="schema-delete-current-name">
+            <input type="hidden" name="name" id="schema-delete-name">
             <button
                 type="submit"
                 class="w-full rounded-2xl border border-rose-400/40 bg-rose-400/10 px-4 py-3 text-sm font-semibold text-rose-100 transition hover:border-rose-300 hover:bg-rose-400/20 disabled:cursor-wait disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-rose-300 focus:ring-offset-2 focus:ring-offset-slate-950"
@@ -118,6 +119,7 @@ $initialPayload = json_encode(
     const deleteType = document.getElementById('schema-delete-type');
     const deleteCurrentName = document.getElementById('schema-delete-current-name');
     const deleteHint = document.getElementById('schema-delete-hint');
+    const deleteName = document.getElementById('schema-delete-name');
 
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
         '&': '&amp;',
@@ -187,6 +189,7 @@ $initialPayload = json_encode(
         modalNewName.value = item;
         deleteType.value = column.key;
         deleteCurrentName.value = item;
+        deleteName.value = item;
         deleteHint.textContent = `${column.deleteHint} Esta ação não pode ser desfeita.`;
         modal.showModal();
         modalNewName.focus();
