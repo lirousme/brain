@@ -80,7 +80,7 @@ $columns = [
                     </button>
                 </div>
                 <p class="mt-2 text-xs leading-5 text-slate-500">
-                    Ao enviar, uma query é executada agora no Neo4j e a lista abaixo é atualizada com o que existe no banco.
+                    Ao enviar, o token de schema é criado no Neo4j sem criar nodes, relationships ou propriedades de exemplo.
                 </p>
             </form>
 

@@ -73,7 +73,7 @@ $schema = neo4j_schema_overview();
                     <p class="text-sm font-medium uppercase tracking-[0.3em] text-cyan-300">Neo4j + Bolt</p>
                     <h1 class="mt-2 text-3xl font-bold tracking-tight text-white">Configurar estrutura do banco</h1>
                     <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                        Visualize os labels, relacionamentos e chaves de propriedades existentes. Ao usar os campos abaixo, o item é criado imediatamente no banco atual.
+                        Visualize os labels, relacionamentos e chaves de propriedades existentes. Ao usar os campos abaixo, apenas o token de schema é criado no banco atual.
                     </p>
                 </div>
                 <div class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
